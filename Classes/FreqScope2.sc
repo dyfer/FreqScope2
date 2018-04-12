@@ -277,7 +277,7 @@ FreqScopeView2 {
 		});
 	}
 
-		maxFreq_{arg freq;
+	maxFreq_{arg freq;
 		maxFreq = freq;
 		if(active, {
 			synth.set(\maxFreq, maxFreq);

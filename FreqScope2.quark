@@ -1,0 +1,8 @@
+(
+	\name:	"FreqScope2",
+	\path:	"FreqScope2",
+	\summary:	"Experimental improvements to SuperCollider's FreqScope",
+	\author:	"Marcin Pączkowski",
+	\version:	"0.0.1",
+	\url:	"https://github.com/dyfer/FreqScope2",
+)
