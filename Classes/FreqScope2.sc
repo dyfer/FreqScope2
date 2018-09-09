@@ -11,6 +11,8 @@ FreqScopeView2 {
 	var playRoutine;
 	var <minFreq, <maxFreq;
 	var <processingRate; // \audio or \control
+	var <fftBuffers, <fftCopyBuffers;
+	var <>smooth = true; //change before staring the scope - creates smooth transitions between frames
 
 	classvar scopeID = 0; //to create new synths
 
@@ -32,7 +34,8 @@ FreqScopeView2 {
 		SynthDef("system" ++ scopeID ++ "_freqScope2_0", { arg in=0, fftBufSize = 2048, scopebufnum=1, rate=4, dbFactor = 0.02;
 			var phase = 1 - (rate * fftBufSize.reciprocal);
 			var signal, chain, result, phasor, numSamples, mul, add;
-			var fftbufnum = numChannels.collect({LocalBuf(fftBufSize, 1)});
+			// var fftbufnum = numChannels.collect({LocalBuf(fftBufSize, 1)});
+			var fftbufnum = \fftBuffers.kr(0 ! numChannels);
 			mul = 0.00285;
 			numSamples = (BufSamples.ir(fftbufnum) - 2) * 0.5; // 1023 (bufsize=2048)
 			signal = In.ar(in, numChannels);
@@ -60,15 +63,17 @@ FreqScopeView2 {
 		SynthDef("system" ++ scopeID ++ "_freqScope2_0_shm", { arg in=0, fftBufSize = 2048, scopebufnum=1, rate=4, dbFactor = 0.02, minFreq = 0, maxFreq = 0, inMul = 1;
 			var phase = 1 - (rate * fftBufSize.reciprocal);
 			var signal, chain, result, phasor, numSamples, mul, add;
-			var fftbufnum = numChannels.collect({LocalBuf(fftBufSize, 1)});
+			// var fftbufnum = numChannels.collect({LocalBuf(fftBufSize, 1)});
+			var fftbufnum = \fftBuffers.kr(0 ! numChannels).asArray;
 			var minBin, maxBin, binWidthInHz;
+			var analyzedSignal, oddEven, evenOdd, oddWriters, evenWriters, oddReaders, evenReaders, lagTime, whichSignal, chain2, trigger, triggers;
 			if(ampdb, {
 				mul = 0.00285;
 			}, {
 				mul = 0.125; //I don't know why, this gives about full scale for WhiteNoise.kr(1)
 			});
 			// numSamples = (BufSamples.ir(fftbufnum) - 2) * 0.5; // 1023 (bufsize=2048)
-			numSamples = (BufSamples.ir(fftbufnum)) * 0.5; // leave DC in
+			numSamples = (BufSamples.ir(fftbufnum.first)) * 0.5; // leave DC in
 			processingRate.switch(
 				\audio, {
 					signal = In.ar(in, numChannels);
@@ -82,19 +87,83 @@ FreqScopeView2 {
 			signal = signal * inMul;
 			chain = FFT(fftbufnum, signal, hop: 0.75, wintype:1); //<<< add changing hop size!
 			chain = PV_MagSmear(chain, 1);
-			// chain = PV_MagSmooth(chain, 0.2);
-			chain =
-			// -1023 to 1023, 0 to 2046, 2 to 2048 (skip first 2 elements DC and Nyquist)
-			// phasor = LFSaw.ar(rate/BufDur.ir(fftbufnum), phase, numSamples, numSamples + 2);
-			phasor = LFSaw.ar(rate/BufDur.ir(fftbufnum), phase, numSamples, numSamples); //leave DC in
+
+			phasor = LFSaw.ar(rate/BufDur.ir(fftbufnum.first), phase, numSamples, numSamples); //leave DC in
+			// phasor.poll(2, label: \phasor);
 			minBin = (minFreq / binWidthInHz).round(1);//.max(0);
 			maxBin = (maxFreq / binWidthInHz).round(1);
 			phasor = phasor.linlin(0, fftBufSize, minBin, maxBin);
 			phasor = phasor.round(2); // the evens are magnitude
+
+			analyzedSignal = numChannels.collect({|inc| BufRd.ar(1, fftbufnum[inc], phasor, 1, 1)});
+			analyzedSignal = analyzedSignal * mul;
+
 			if(ampdb, {
-				ScopeOut2.ar( ((numChannels.collect({|inc| BufRd.ar(1, fftbufnum[inc], phasor, 1, 1) * mul})).ampdb * dbFactor) + 1, scopebufnum, fftBufSize/rate);
+				ScopeOut2.ar( (analyzedSignal.ampdb * dbFactor) + 1, scopebufnum, fftBufSize/rate);
 			}, {
-				ScopeOut2.ar( ((numChannels.collect({|inc| BufRd.ar(1, fftbufnum[inc], phasor, 1, 1) * mul}))) - 1, scopebufnum, fftBufSize/rate);
+				ScopeOut2.ar( analyzedSignal - 1, scopebufnum, fftBufSize/rate);
+			});
+		}, [\kr, \ir, \ir, \ir, \kr]).add;
+
+		SynthDef("system" ++ scopeID ++ "_freqScope2_0_shm_smooth", { arg in=0, fftBufSize = 2048, scopebufnum=1, rate=4, dbFactor = 0.02, minFreq = 0, maxFreq = 0, inMul = 1;
+			var phase = 1 - (rate * fftBufSize.reciprocal);
+			var signal, chain, result, phasor, numSamples, mul, add;
+			// var fftbufnum = numChannels.collect({LocalBuf(fftBufSize, 1)});
+			var fftbufnum = \fftBuffers.kr(0 ! numChannels).asArray;
+			var fftcopybufnum = \fftCopyBuffers.kr(0 ! numChannels);
+			var minBin, maxBin, binWidthInHz;
+			var analyzedSignal, oddEven, evenOdd, oddWriters, evenWriters, oddReaders, evenReaders, lagTime, whichSignal, chain2, trigger, triggers;
+			if(ampdb, {
+				mul = 0.00285;
+			}, {
+				mul = 0.125; //I don't know why, this gives about full scale for WhiteNoise.kr(1)
+			});
+			// numSamples = (BufSamples.ir(fftbufnum) - 2) * 0.5; // 1023 (bufsize=2048)
+			numSamples = (BufSamples.ir(fftbufnum.first)) * 0.5; // leave DC in
+			processingRate.switch(
+				\audio, {
+					signal = In.ar(in, numChannels);
+					binWidthInHz = SampleRate.ir / fftBufSize / 2;
+				},
+				\control, {
+					signal = In.kr(in, numChannels);
+					binWidthInHz = ControlRate.ir / fftBufSize / 2;
+				}
+			);
+			signal = signal * inMul;
+			chain = FFT(fftbufnum, signal, hop: 0.75, wintype:1); //<<< add changing hop size!
+			chain = PV_MagSmear(chain, 1);
+
+			phasor = LFSaw.ar(rate/BufDur.ir(fftbufnum.first), phase, numSamples, numSamples); //leave DC in
+			// phasor.poll(2, label: \phasor);
+			minBin = (minFreq / binWidthInHz).round(1);//.max(0);
+			maxBin = (maxFreq / binWidthInHz).round(1);
+			phasor = phasor.linlin(0, fftBufSize, minBin, maxBin);
+			phasor = phasor.round(2); // the evens are magnitude
+
+
+			//smoothing
+			chain2 = PV_Copy(chain, fftcopybufnum);
+			trigger = chain.asArray.first >= 0;
+			oddEven = (ToggleFF.kr(trigger));
+			evenOdd = oddEven.neg + 1; //invert
+			chain = numChannels.collect({|inc| PV_MagFreeze(chain[inc], oddEven)});
+			chain2 = numChannels.collect({|inc| PV_MagFreeze(chain2[inc], evenOdd)});
+			chain = PV_MagFreeze(chain, oddEven);
+			chain2 = PV_MagFreeze(chain2, evenOdd);
+			lagTime = Timer.kr(trigger);
+			whichSignal = VarLag.kr(oddEven, lagTime, warp: \sine);
+			analyzedSignal = LinSelectX.ar(whichSignal, [
+				numChannels.collect({|inc| BufRd.ar(1, fftbufnum[inc], phasor, 1, 1)}),
+				numChannels.collect({|inc| BufRd.ar(1, fftcopybufnum[inc], phasor, 1, 1)})
+			]);
+
+			analyzedSignal = analyzedSignal * mul;
+
+			if(ampdb, {
+				ScopeOut2.ar( (analyzedSignal.ampdb * dbFactor) + 1, scopebufnum, fftBufSize/rate);
+			}, {
+				ScopeOut2.ar( analyzedSignal - 1, scopebufnum, fftBufSize/rate);
 			});
 		}, [\kr, \ir, \ir, \ir, \kr]).add;
 
@@ -102,7 +171,8 @@ FreqScopeView2 {
 		SynthDef("system" ++ scopeID ++ "_freqScope2_1", { arg in=0, fftBufSize = 2048, scopebufnum=1, rate=4, dbFactor = 0.02;
 			var phase = 1 - (rate * fftBufSize.reciprocal);
 			var signal, chain, result, phasor, halfSamples, mul, add;
-			var fftbufnum = numChannels.collect({LocalBuf(fftBufSize, 1)});
+			// var fftbufnum = numChannels.collect({LocalBuf(fftBufSize, 1)});
+			var fftbufnum = \fftBuffers.kr(0 ! numChannels);
 			mul = 0.00285;
 			halfSamples = BufSamples.ir(fftbufnum) * 0.5;
 			signal = In.ar(in, numChannels);
@@ -116,7 +186,8 @@ FreqScopeView2 {
 		SynthDef("system" ++ scopeID ++ "_freqScope2_1_shm", { arg in=0, fftBufSize = 2048, scopebufnum=1, rate=4, dbFactor = 0.02;
 			var phase = 1 - (rate * fftBufSize.reciprocal);
 			var signal, chain, result, phasor, halfSamples, mul, add;
-			var fftbufnum = numChannels.collect({LocalBuf(fftBufSize, 1)});
+			// var fftbufnum = numChannels.collect({LocalBuf(fftBufSize, 1)});
+			var fftbufnum = \fftBuffers.kr(0 ! numChannels);
 			mul = 0.00285;
 			halfSamples = BufSamples.ir(fftbufnum) * 0.5;
 			signal = In.ar(in, numChannels);
@@ -178,9 +249,22 @@ FreqScopeView2 {
 		};
 	}
 
+	allocFftBuffers {
+		fftBuffers = numChannels.collect({Buffer.alloc(server, bufSize, 1)}); //bufSize == fftsize
+		if(this.smooth, {
+			fftCopyBuffers = numChannels.collect({Buffer.alloc(server, bufSize, 1)}); //bufSize == fftsize
+		});
+	}
+
 	freeBuffers {
 		if (scopebuf.notNil) {
 			scopebuf.free; scopebuf = nil;
+		};
+		if (fftBuffers.notNil) {
+			fftBuffers.do(_.free); fftBuffers = nil;
+		};
+		if (fftCopyBuffers.notNil) {
+			fftCopyBuffers.do(_.free); fftCopyBuffers = nil;
 		};
 	}
 
@@ -190,16 +274,21 @@ FreqScopeView2 {
 
 		if (synth.notNil) { synth.free };
 		if (scopebuf.isNil) { this.allocBuffers };
+		if (fftBuffers.isNil) { this.allocFftBuffers };
 
 		this.initSynthDefs; //rutime, to adjust numChannels
-		playRoutine = fork{
+		playRoutine = forkIfNeeded{
 			server.sync;
 			defname = specialSynthDef ?? {
-				"system" ++ scopeID ++ "_freqScope2_" ++ freqMode.asString ++ if (this.shmScopeAvailable) {"_shm"} {""}
+				"system" ++ scopeID ++ "_freqScope2_" ++ freqMode.asString ++ if (this.shmScopeAvailable) {"_shm"} {""} ++ if (this.smooth) {"_smooth"} {""}
 			};
 			args = [\in, inBus, \dbFactor, dbFactor, \rate, rate, \fftBufSize, bufSize,
 				\minFreq, minFreq, \maxFreq, maxFreq,
-				\scopebufnum, scopebuf.bufnum] ++ specialSynthArgs;
+				\scopebufnum, scopebuf.bufnum,
+				\fftBuffers, fftBuffers
+			];
+			if(this.smooth, {args = args ++ [\fftCopyBuffers, fftCopyBuffers]});
+			args = args ++ specialSynthArgs;
 			synth = Synth.tail(RootNode(server), defname, args);
 			if (scope.isKindOf(ScopeView)) {{ scope.start }.defer};
 		}
@@ -317,7 +406,7 @@ FreqScopeView2 {
 }
 
 FreqScope2 {
-	var <bus, <fftSize, <name, <bounds, <parent, <server, <ampdb;
+	var <bus, <fftSize, <name, <bounds, <parent, <server, <ampdb, <smooth;
 	var <scopeOpen;
 	var busNum;
 
@@ -331,8 +420,8 @@ FreqScope2 {
 	var grid, xSpec, ySpec, gridView;
 
 	/**new { arg width=522, height=300, busNum=0, scopeColor, bgColor, server;*/
-	*new { arg bus = 0, fftSize = 2048, name = "Frequency Analyzer", bounds, parent, server, ampdb = true;
-	^super.newCopyArgs(bus, fftSize, name, bounds, parent, server, ampdb).init;
+	*new { arg bus = 0, fftSize = 2048, name = "Frequency Analyzer", bounds, parent, server, ampdb = true, smooth = false;
+	^super.newCopyArgs(bus, fftSize, name, bounds, parent, server, ampdb, smooth).init;
 }
 
 init {
@@ -447,8 +536,9 @@ init {
 
 			scope = FreqScopeView2(lView, nil, server, fftSize, numChannels, rate, ampdb);//, rect.moveBy(pad[0], pad[2]), server);
 			/*scope.xZoom_((scope.bufSize*0.25) / width);*/
+			scope.smooth_(this.smooth);
 
-			"scope: ".post; scope.postln;
+			// "scope: ".post; scope.postln;
 
 
 			/*setFreqLabelVals.value(scope.freqMode, 2048);*/

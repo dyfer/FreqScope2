@@ -4,9 +4,12 @@ s.boot
 LineLayout
 s.boot
 
+
+s.meter
 b=Bus.control(s, 2);
 
-f = FreqScope2(Bus.new(\audio,0, 2, s), 16384, "test")
+s.boot
+s.waitForBoot({f = FreqScope2(Bus.new(\audio,s.options.numOutputBusChannels, 2, s), 16384, "test")})
 f = FreqScope2(b, 512)
 FreqScope2(0)
 f.scope.scope.waveColors_([Color.black, Color.red])
@@ -22,8 +25,16 @@ a = 24000 / 2048
 a
 b = 24000/a
 
+16384/48000/2
+
 
 5000/22000 * (1024/2).neg
+s.options.memSize = 13172
+s.reboot;
+s.waitForBoot({f = FreqScope2(Bus.new(\audio, 32, 2, s), 16384, "test"); n.free; n = {SinOsc.ar(Line.kr(20, 22000, 10), 0, -24.dbamp ! 2)}.play(outbus: 32);});
+n.free; n = {SinOsc.ar(Line.kr(20, 22000, 10), 0, -24.dbamp ! 2)}.play(outbus: 32);
+n.free; n = {SinOsc.ar(5000, 0, -48.dbamp ! 2)}.play(outbus: 32);
+
 
 //!!!!! scope x = in pixels, width/2 is full window
 
