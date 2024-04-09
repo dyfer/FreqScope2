@@ -4,6 +4,7 @@ FreqScopeView2 {
 	var <scopebuf;
 	var <server;
 	var <active, <synth, <inBus, <dbRange, dbFactor, rate, <freqMode;
+	var <maxVal; //only in linear
 	var <bufSize;	// size of FFT
 	var <ampdb;
 	var <numChannels;
@@ -35,7 +36,7 @@ FreqScopeView2 {
 			var phase = 1 - (rate * fftBufSize.reciprocal);
 			var signal, chain, result, phasor, numSamples, mul, add;
 			// var fftbufnum = numChannels.collect({LocalBuf(fftBufSize, 1)});
-			var fftbufnum = \fftBuffers.kr(0 ! numChannels);
+			var fftbufnum = \fftBuffers.kr(0 ! numChannels).asArray;
 			mul = 0.00285;
 			numSamples = (BufSamples.ir(fftbufnum) - 2) * 0.5; // 1023 (bufsize=2048)
 			signal = In.ar(in, numChannels);
@@ -110,7 +111,7 @@ FreqScopeView2 {
 			var signal, chain, result, phasor, numSamples, mul, add;
 			// var fftbufnum = numChannels.collect({LocalBuf(fftBufSize, 1)});
 			var fftbufnum = \fftBuffers.kr(0 ! numChannels).asArray;
-			var fftcopybufnum = \fftCopyBuffers.kr(0 ! numChannels);
+			var fftcopybufnum = \fftCopyBuffers.kr(0 ! numChannels).asArray;
 			var minBin, maxBin, binWidthInHz;
 			var analyzedSignal, oddEven, evenOdd, oddWriters, evenWriters, oddReaders, evenReaders, lagTime, whichSignal, chain2, trigger, triggers;
 			if(ampdb, {
@@ -172,7 +173,7 @@ FreqScopeView2 {
 			var phase = 1 - (rate * fftBufSize.reciprocal);
 			var signal, chain, result, phasor, halfSamples, mul, add;
 			// var fftbufnum = numChannels.collect({LocalBuf(fftBufSize, 1)});
-			var fftbufnum = \fftBuffers.kr(0 ! numChannels);
+			var fftbufnum = \fftBuffers.kr(0 ! numChannels).asArray;
 			mul = 0.00285;
 			halfSamples = BufSamples.ir(fftbufnum) * 0.5;
 			signal = In.ar(in, numChannels);
@@ -187,7 +188,7 @@ FreqScopeView2 {
 			var phase = 1 - (rate * fftBufSize.reciprocal);
 			var signal, chain, result, phasor, halfSamples, mul, add;
 			// var fftbufnum = numChannels.collect({LocalBuf(fftBufSize, 1)});
-			var fftbufnum = \fftBuffers.kr(0 ! numChannels);
+			var fftbufnum = \fftBuffers.kr(0 ! numChannels).asArray;
 			mul = 0.00285;
 			halfSamples = BufSamples.ir(fftbufnum) * 0.5;
 			signal = In.ar(in, numChannels);
@@ -221,6 +222,7 @@ FreqScopeView2 {
 		inBus = 0;
 		dbRange = 96;
 		dbFactor = 2/dbRange;
+		maxVal = 1;
 		rate = 4;
 		freqMode = 0; // 0 - linear
 		/*bufSize = 2048;*/
@@ -284,6 +286,7 @@ FreqScopeView2 {
 			};
 			args = [\in, inBus, \dbFactor, dbFactor, \rate, rate, \fftBufSize, bufSize,
 				\minFreq, minFreq, \maxFreq, maxFreq,
+				\inMul, maxVal.max(0.001).reciprocal,
 				\scopebufnum, scopebuf.bufnum,
 				\fftBuffers, fftBuffers
 			];
@@ -349,6 +352,14 @@ FreqScopeView2 {
 		dbFactor = 2/db;
 		if(active, {
 			synth.set(\dbFactor, dbFactor);
+		});
+	}
+
+	maxVal_ { arg val;
+		maxVal = val;
+		// format("setting new maxval in scope to % (reciprocal: %)", maxVal, maxVal.max(0.001).reciprocal).postln;
+		if(active, {
+			synth.set(\inMul, maxVal.max(0.001).reciprocal);
 		});
 	}
 
@@ -545,7 +556,7 @@ init {
 			/*setFreqLabelVals.value(scope.freqMode, scope.bufSize);
 			setDBLabelVals.value(scope.dbRange);*/
 			this.setFreqLabel;
-			this.setAmpLabel(scope.dbRange);
+			this.setAmpLabel(if(ampdb, {scope.dbRange}, {1}));
 			gridView.refresh;
 
 			/*Button(window, Rect(pad[0] + rect.width, pad[2], pad[1], 16))*/
@@ -647,9 +658,13 @@ init {
 			PopUpMenu(rView)
 				.items_(Array.series(12, 12, 12).collect({ arg item; item.asString }))
 				.action_({ arg view;
+				if(ampdb, {
 					scope.dbRange_((view.value + 1) * 12);
 					/*setDBLabelVals.value(scope.dbRange);*/
 					this.setAmpLabel(scope.dbRange);
+				}, {
+					"setting db scale requires ampdb to be true".warn;
+				});
 				})
 				.canFocus_(false)
 				.font_(font)
@@ -688,13 +703,15 @@ init {
 		grid.horzGrid_(xSpec.grid);
 		gridView.refresh;
 	}
-	setAmpLabel {arg val;
+	setAmpLabel {arg val; //FIXME: in db mode, sets min db value; in amp mode, sets max value
 		if(ampdb, {
 			var db = val;
 			ySpec = ControlSpec(db.neg, 0, \lin, units: "dB");
 		}, {
-			"using hardcoded scale 0-1".warn;
-			ySpec = ControlSpec(0, 1, \lin);
+			// "using hardcoded scale 0-1".warn;
+			// format("setting amp label to %", val).postln;
+			ySpec = ControlSpec(0, val, \lin);
+			scope.maxVal = val;
 		});
 		grid.vertGrid_(ySpec.grid);
 		gridView.refresh;
