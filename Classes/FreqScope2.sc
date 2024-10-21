@@ -428,7 +428,7 @@ FreqScope2 {
 	var <>drawXGrid = true, <>drawYGrid = true;
 
 	var minFreq = 0, maxFreq = 22000, nyquist = 22000;
-	var grid, xSpec, ySpec, gridView;
+	var <grid, <xSpec, <ySpec, <gridView;
 
 	/**new { arg width=522, height=300, busNum=0, scopeColor, bgColor, server;*/
 	*new { arg bus = 0, fftSize = 2048, name = "Frequency Analyzer", bounds, parent, server, ampdb = true, smooth = false;
