@@ -469,7 +469,7 @@ init {
 			/*rect = Rect(0, 0, width, height);*/
 			bounds ?? {bounds = Rect(0, 0, width, height)};
 			rect = bounds;
-			pad = [30, 48, 14, 10]; // l,r,t,b
+			// pad = [30, 48, 14, 10]; // l,r,t,b
 			font = Font.monospace(9);
 			freqLabel = Array.newClear(12);
 			freqLabelDist = rect.width/(freqLabel.size-1);
@@ -562,8 +562,9 @@ init {
 			/*Button(window, Rect(pad[0] + rect.width, pad[2], pad[1], 16))*/
 			mainLayout.add(
 				rView = View(window)
-				);
-				rView.layout_(rLayout = VLayout()).fixedWidth_(80);
+			);
+			rLayout = VLayout();
+			rView.layout_(rLayout).fixedWidth_(80);
 
 			Button(rView)
 				.states_([["stop", Color.white, Color.green(0.5)], ["start", Color.white, Color.red(0.5)]])
