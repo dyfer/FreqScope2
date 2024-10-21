@@ -430,6 +430,8 @@ FreqScope2 {
 	var minFreq = 0, maxFreq = 22000, nyquist = 22000;
 	var <grid, <xSpec, <ySpec, <gridView;
 
+	var xInset = 16, yInset = 14;
+
 	/**new { arg width=522, height=300, busNum=0, scopeColor, bgColor, server;*/
 	*new { arg bus = 0, fftSize = 2048, name = "Frequency Analyzer", bounds, parent, server, ampdb = true, smooth = false;
 	^super.newCopyArgs(bus, fftSize, name, bounds, parent, server, ampdb, smooth).init;
@@ -440,7 +442,7 @@ init {
 		var rect, pad, font, freqLabel, freqLabelDist, dbLabel, dbLabelDist;
 		/*var setFreqLabelVals, setDBLabelVals;*/
 		var nyquistKHz;
-		var mainLayout, lView, rLayout, rView;
+		var mainLayout, lView, rLayout, rView, scopeView;
 
 		if(bus.isKindOf(Bus), {
 			numChannels = bus.numChannels;
@@ -506,21 +508,21 @@ init {
 				window = Window(name, bounds, true).front;
 			});
 			window.layout_(
-				mainLayout = HLayout(lView = View())
-				);
+				mainLayout = HLayout(lView = View()).margins_([4, 12, 12, 4]).spacing_(0);
+			);
 
-				lView.layout_(StackLayout().mode_(1)); //mode 1 = display all the views
-				gridView = UserView(lView);
-				gridView.background = Color.clear;
-				gridView.drawFunc = {|thisView|
-						var xGridBounds, yGridBounds;
-							if(isRunning, {
-								/*xGridBounds = Rect(0, 0, thisView.bounds.width, thisView.bounds.height);*/
-								grid.bounds = Rect(0, 0, thisView.bounds.width, thisView.bounds.height);
-								grid.draw;
+			lView.layout_(StackLayout().mode_(1)); //mode 1 = display all the views
+			gridView = UserView(lView);
+			scopeView = View(lView).layout_(HLayout().margins_([xInset, 0, xInset, yInset]));
+			gridView.background = Color.clear;
+			gridView.drawFunc = {|thisView|
+				var xGridBounds, yGridBounds;
+				if(isRunning, {
+					grid.bounds = thisView.bounds.insetAll(xInset, 0, xInset, yInset);
+					grid.draw;
 
-							})
-						};
+				})
+			};
 
 
 			/*freqLabel.size.do({ arg i;
@@ -545,7 +547,7 @@ init {
 
 			/*scope = FreqScopeView2(window, rect.moveBy(pad[0], pad[2]), server);*/
 
-			scope = FreqScopeView2(lView, nil, server, fftSize, numChannels, rate, ampdb);//, rect.moveBy(pad[0], pad[2]), server);
+			scope = FreqScopeView2(scopeView, nil, server, fftSize, numChannels, rate, ampdb);//, rect.moveBy(pad[0], pad[2]), server);
 			/*scope.xZoom_((scope.bufSize*0.25) / width);*/
 			scope.smooth_(this.smooth);
 
