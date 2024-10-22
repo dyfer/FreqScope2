@@ -766,3 +766,10 @@ init {
 		window.close;
 	}
 }
+
++ Server {
+
+	freqscope2 {
+		^FreqScope2(this.outputBus)
+	}
+}
