@@ -505,7 +505,6 @@ init {
 			grid = DrawGrid();
 			grid.gridColors_([Color.grey(0.5,0.4), Color.clear]);
 
-			/*window = Window("Freq Analyzer", rect.resizeBy(pad[0] + pad[1] + 4, pad[2] + pad[3] + 4), false);*/
 
 			if(parent.notNil, {
 				window = View(parent, bounds);
