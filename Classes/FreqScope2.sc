@@ -503,6 +503,7 @@ init {
 			nyquist = maxFreq;
 
 			grid = DrawGrid();
+			grid.gridColors_([Color.grey(0.5,0.4), Color.clear]);
 
 			/*window = Window("Freq Analyzer", rect.resizeBy(pad[0] + pad[1] + 4, pad[2] + pad[3] + 4), false);*/
 
@@ -682,17 +683,14 @@ init {
 			.inBus_(busNum)
 			.active_(true)
 			.style_(1)
-			/*.waveColors_([scopeColor.alpha_(1)])*/
-			/*.waveColors_([scopeColor.alpha_(1)])*/
-			.waveColors_(numChannels.collect({Color.hsv(rrand(0.2, 0.8), 0.5, 0.6)}))
-			// .background_(Color.white(0.8))
+			.waveColors_(numChannels.collect({ |inc| Color.hsv((0.16 - (inc * 0.17)) % 1, 0.5, 0.6)}))
 			.canFocus_(false)
 			;
 
 			/*if (bgColor.notNil) {
 				scope.background_(bgColor)
 			};*/
-				scope.background_(Color.white);
+			scope.background_(Color.black); // Color.white(0.8)
 
 			window.onClose_({
 				scope.kill;
