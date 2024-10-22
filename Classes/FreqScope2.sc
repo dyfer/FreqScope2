@@ -365,23 +365,35 @@ FreqScopeView2 {
 
 	freqMode_ { arg mode;
 		freqMode = mode.asInteger.clip(0,1);
+		if(freqMode == 1) {
+			minFreq = server.sampleRate / bufSize;
+			maxFreq = server.sampleRate / 2;
+		};
 		if(active, {
 			this.start;
 		});
 	}
 
 	minFreq_{arg freq;
-		minFreq = freq;
-		if(active, {
-			synth.set(\minFreq, minFreq);
-		});
+		if(freqMode == 0) {
+			minFreq = freq;
+			if(active, {
+				synth.set(\minFreq, minFreq);
+			})
+		} {
+			"frequency range setting available only in linear mode currently".warn;
+		};
 	}
 
 	maxFreq_{arg freq;
-		maxFreq = freq;
-		if(active, {
-			synth.set(\maxFreq, maxFreq);
-		});
+		if(freqMode == 0) {
+			maxFreq = freq;
+			if(active, {
+				synth.set(\maxFreq, maxFreq);
+			});
+		} {
+			"frequency range setting available only in linear mode currently".warn;
+		};
 	}
 
 	specialSynthArgs_ {|args|
@@ -638,26 +650,24 @@ init {
 				.font_(font)
 			;*/
 			/*,*/
-			/*PopUpMenu(window, Rect(pad[0] + rect.width, pad[2]+58, pad[1], 16))*/
-			/*PopUpMenu(rView)
-				.items_(["lin", "log"])
-				.action_({ arg view;
-					scope.freqMode_(view.value);
-					setFreqLabelVals.value(scope.freqMode, 2048);
-				})
-				.canFocus_(false)
-				.font_(font)
-				.valueAction_(1)
-			;*/
-			/*,*/
-
-			/*StaticText(window, Rect(pad[0] + rect.width, pad[2]+76, pad[1], 10))*/
 			StaticText(rView)
-				.string_("dbCut")
-				.font_(font)
+			.string_("freqMode:")
+			.font_(font)
 			;
-			/*,*/
-			/*PopUpMenu(window, Rect(pad[0] + rect.width, pad[2]+86, pad[1], 16))*/
+			PopUpMenu(rView)
+			.items_(["lin", "log"])
+			.action_({ arg view;
+				this.freqMode_(view.value)
+			})
+			.canFocus_(false)
+			.font_(font)
+			.valueAction_(1)
+			;
+
+			StaticText(rView)
+			.string_("dbCut:")
+			.font_(font)
+			;
 			PopUpMenu(rView)
 				.items_(Array.series(12, 12, 12).collect({ arg item; item.asString }))
 				.action_({ arg view;
@@ -699,10 +709,20 @@ init {
 			/*^super.newCopyArgs(scope, window)*/
 		});
 	}
+
+	freqMode_ { |mode|
+		scope.freqMode = mode.asInteger.clip(0,1);
+		if(scope.freqMode == 1) {
+			minFreq = server.sampleRate / scope.bufSize;
+			maxFreq = server.sampleRate / 2;
+		};
+		this.setFreqLabel;
+	}
+
 	setFreqLabel {arg minFreqArg, maxFreqArg;
 		minFreqArg !? {minFreq = minFreqArg};
 		maxFreqArg !? {maxFreq = maxFreqArg};
-		xSpec = ControlSpec(minFreq, maxFreq, \lin, units: "Hz"); //only linear supported for now
+		xSpec = ControlSpec(minFreq.max(0.01), maxFreq, [\lin, \exponential][scope.freqMode], units: "Hz");
 		grid.horzGrid_(xSpec.grid);
 		gridView.refresh;
 	}
