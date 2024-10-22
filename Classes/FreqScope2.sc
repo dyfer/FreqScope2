@@ -443,7 +443,7 @@ FreqScope2 {
 	var minFreq = 0, maxFreq = 22000, nyquist = 22000;
 	var <grid, <xSpec, <ySpec, <gridView;
 
-	var xInset = 16, yInset = 14;
+	var xInset = 22, yInset = 16;
 
 	/**new { arg width=522, height=300, busNum=0, scopeColor, bgColor, server;*/
 	*new { arg bus = 0, fftSize = 2048, name = "Frequency Analyzer", bounds, parent, server, ampdb = true, smooth = false;
@@ -513,7 +513,7 @@ init {
 				window = Window(name, bounds, true).front;
 			});
 			window.layout_(
-				mainLayout = HLayout(lView = View()).margins_([4, 12, 12, 4]).spacing_(0);
+				mainLayout = HLayout(lView = View()).margins_([0, yInset, xInset, 0]).spacing_(0);
 			);
 
 			lView.layout_(StackLayout().mode_(1)); //mode 1 = display all the views
@@ -570,7 +570,7 @@ init {
 			mainLayout.add(
 				rView = View(window)
 			);
-			rLayout = VLayout();
+			rLayout = VLayout().margins_([0, 0, 0, 0]);
 			rView.layout_(rLayout).fixedWidth_(80);
 
 			Button(rView)
