@@ -687,14 +687,14 @@ init {
 			rLayout.add(nil);
 
 			scope
-				.inBus_(busNum)
-				.active_(true)
-				.style_(1)
-				/*.waveColors_([scopeColor.alpha_(1)])*/
-				/*.waveColors_([scopeColor.alpha_(1)])*/
-				.waveColors_(numChannels.collect({Color.hsv(rrand(0.2, 0.8), 0.5, 0.6)}))
+			.inBus_(busNum)
+			.active_(true)
+			.style_(1)
+			/*.waveColors_([scopeColor.alpha_(1)])*/
+			/*.waveColors_([scopeColor.alpha_(1)])*/
+			.waveColors_(numChannels.collect({Color.hsv(rrand(0.2, 0.8), 0.5, 0.6)}))
 			// .background_(Color.white(0.8))
-				.canFocus_(false)
+			.canFocus_(false)
 			;
 
 			/*if (bgColor.notNil) {
