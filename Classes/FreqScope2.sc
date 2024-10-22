@@ -226,14 +226,6 @@ FreqScopeView2 {
 		rate = 4;
 		freqMode = 0; // 0 - linear
 		/*bufSize = 2048;*/
-		minFreq ?? {minFreq = 0};
-		maxFreq ?? {
-			if(processingRate == \audio, {
-				maxFreq = server.sampleRate / 2;
-			}, {
-				maxFreq = (server.sampleRate / server.options.blockSize) / 2;
-			})
-		};
 		ServerQuit.add(this, server);
 		scopeID = scopeID + 1; //increment, to have unique sytnhs
 		^this;
@@ -274,6 +266,14 @@ FreqScopeView2 {
 		var defname, args;
 
 
+		minFreq ?? {minFreq = 0};
+		maxFreq ?? {
+			if(processingRate == \audio, {
+				maxFreq = server.sampleRate / 2;
+			}, {
+				maxFreq = (server.sampleRate / server.options.blockSize) / 2;
+			})
+		};
 		if (synth.notNil) { synth.free };
 		if (scopebuf.isNil) { this.allocBuffers };
 		if (fftBuffers.isNil) { this.allocFftBuffers };
@@ -366,8 +366,9 @@ FreqScopeView2 {
 	freqMode_ { arg mode;
 		freqMode = mode.asInteger.clip(0,1);
 		if(freqMode == 1) {
-			minFreq = server.sampleRate / bufSize;
-			maxFreq = server.sampleRate / 2;
+			// TODO we need to reset these when server starts...
+			minFreq = server.sampleRate ? 48000 / bufSize;
+			maxFreq = server.sampleRate ? 48000 / 2;
 		};
 		if(active, {
 			this.start;
@@ -490,15 +491,6 @@ init {
 			dbLabel = Array.newClear(17);
 			dbLabelDist = rect.height/(dbLabel.size-1);
 
-			rate.switch(
-				\audio, {
-					// nyquistKHz = server.sampleRate / 2;
-					maxFreq = server.sampleRate / 2;
-				},
-				\control, {
-					maxFreq = (server.sampleRate / server.options.blockSize) / 2;
-				}
-			);
 			// nyquistKHz = server.sampleRate;
 			// if( (nyquistKHz == 0) || nyquistKHz.isNil, {
 			// 	nyquistKHz = 22.05 // best guess?
@@ -713,8 +705,8 @@ init {
 	freqMode_ { |mode|
 		scope.freqMode = mode.asInteger.clip(0,1);
 		if(scope.freqMode == 1) {
-			minFreq = server.sampleRate / scope.bufSize;
-			maxFreq = server.sampleRate / 2;
+			minFreq = scope.minFreq;
+			maxFreq = scope.maxFreq;
 		};
 		this.setFreqLabel;
 	}
